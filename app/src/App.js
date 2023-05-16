@@ -1,9 +1,11 @@
 import { ethers } from 'ethers';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import deploy from './deploy';
 import Escrow from './Escrow';
+import Navbar from './components/Navbar/Navbar';
+import useAuth from './hooks/AuthHook';
 
-const provider = new ethers.providers.Web3Provider(window.ethereum);
+//  cruel slice topic ladder shaft inch top such runway start gold tragic 
 
 export async function approve(escrowContract, signer) {
   const approveTxn = await escrowContract.connect(signer).approve();
@@ -12,26 +14,24 @@ export async function approve(escrowContract, signer) {
 
 function App() {
   const [escrows, setEscrows] = useState([]);
-  const [account, setAccount] = useState();
-  const [signer, setSigner] = useState();
-
-  useEffect(() => {
-    async function getAccounts() {
-      const accounts = await provider.send('eth_requestAccounts', []);
-
-      setAccount(accounts[0]);
-      setSigner(provider.getSigner());
-    }
-
-    getAccounts();
-  }, [account]);
+  const { isAuthenticated, user, signer } = useAuth();
 
   async function newContract() {
+    console.log("Will deploy the contract !!!")
+    console.log(signer)
     const beneficiary = document.getElementById('beneficiary').value;
     const arbiter = document.getElementById('arbiter').value;
     const value = ethers.BigNumber.from(document.getElementById('wei').value);
+
+    console.log({
+      beneficiary,
+      arbiter,
+      value
+    })
+
     const escrowContract = await deploy(signer, arbiter, beneficiary, value);
 
+    console.log("The escro sm")
 
     const escrow = {
       address: escrowContract.address,
@@ -54,47 +54,59 @@ function App() {
   }
 
   return (
-    <>
-      <div className="contract">
-        <h1> New Contract </h1>
-        <label>
-          Arbiter Address
-          <input type="text" id="arbiter" />
-        </label>
-
-        <label>
-          Beneficiary Address
-          <input type="text" id="beneficiary" />
-        </label>
-
-        <label>
-          Deposit Amount (in Wei)
-          <input type="text" id="wei" />
-        </label>
-
-        <div
-          className="button"
-          id="deploy"
-          onClick={(e) => {
-            e.preventDefault();
-
-            newContract();
-          }}
-        >
-          Deploy
-        </div>
+    <div className="">
+      <div className="">
+        <Navbar />
       </div>
+      {/* Welcome section */}
+      {
+        isAuthenticated ? (
+          <div className="mt-6 mx-4">
+            <p className="text-sm text-grotesk"> Welcome: <span className="semibold text-mono"> { user?.wallet } </span> </p>
+          </div>
+        ) : null
+      }
+      <div className="grid grid-cols-1 lg:grid-cols-2">
+        {/* Create a new contract section */}
+        <div className="bg-white shadow-lg my-6 mx-4 p-1">
+          <h1 className="text-grotesk text-black"> New Contract </h1>
+          <label className="text-grotesk text-sm">
+            Arbiter Address
+            <input type="text" id="arbiter" className="text-mono text-xs" />
+          </label>
 
-      <div className="existing-contracts">
-        <h1> Existing Contracts </h1>
+          <label className="text-grotesk text-sm">
+            Beneficiary Address
+            <input type="text" id="beneficiary" className="text-mono text-xs" />
+          </label>
 
-        <div id="container">
-          {escrows.map((escrow) => {
-            return <Escrow key={escrow.address} {...escrow} />;
-          })}
+          <label className="text-grotesk text-sm">
+            Deposit Amount (in Wei)
+            <input id="wei" type="text" className="text-xs" />
+          </label>
+
+          <div
+            className="text-grotesk w-fit bg-[#EBCB8B] text-center px-2 py-[0.3em] mx-4 text-black hover:cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              newContract();
+            }}
+          >
+            Deploy
+          </div>
         </div>
+        {/* Contracts that were created */}
+        <div className="mx-1">
+          <h1 className="text-grotesk"> Existing Contracts </h1>
+          <div>
+            {escrows.map((escrow) => {
+              return <Escrow key={escrow.address} {...escrow} />;
+            })}
+          </div>
+        </div>
+
       </div>
-    </>
+    </div>
   );
 }
 
