@@ -10,12 +10,12 @@ export default function useAuth() {
     useEffect(() => {
         if (!state.isAuthenticated) { 
             (async () => {
-                const accounts = await provider.send("eth_requestAccounts", {})
+                // List the connected accounts
+                const accounts = await provider.listAccounts()
+
                 // If an existing account is connected
                 if (accounts?.length) {
                     const signer = provider.getSigner();
-                    console.log("tHE SIGNER")
-                    console.log(signer)
                     dispatch({ type: "LOGIN", payload: { wallet: accounts[0], signer }});
                 }
             })();
@@ -31,7 +31,7 @@ export default function useAuth() {
     }
     
     async function logout() {
-        console.log("Will logout")
+        dispatch({ type: "LOGOUT" });
     }
 
     return {
@@ -39,5 +39,6 @@ export default function useAuth() {
         logout,
         isAuthenticated: state.isAuthenticated,
         user: state.user,
-    } 
+        signer: state.signer,
+    }
 }

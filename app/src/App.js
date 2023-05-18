@@ -1,53 +1,60 @@
 import { ethers } from 'ethers';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import deploy from './deploy';
 import Escrow from './Escrow';
 import Navbar from './components/Navbar/Navbar';
 import useAuth from './hooks/AuthHook';
-
-//  cruel slice topic ladder shaft inch top such runway start gold tragic 
-
-export async function approve(escrowContract, signer) {
-  const approveTxn = await escrowContract.connect(signer).approve();
-  await approveTxn.wait();
-}
+import { approve, provider } from './utils';
 
 function App() {
   const [escrows, setEscrows] = useState([]);
+  const [beneficiary, setBeneficiary] = useState("0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65");
+  const [arbiter, setArbiter] = useState("0xbDA5747bFD65F08deb54cb465eB87D40e51B197E");
+  const [wethValue, setWethValue] = useState("1000000000000000000");
   const { isAuthenticated, user, signer } = useAuth();
 
-  async function newContract() {
-    console.log("Will deploy the contract !!!")
-    console.log(signer)
-    const beneficiary = document.getElementById('beneficiary').value;
-    const arbiter = document.getElementById('arbiter').value;
-    const value = ethers.BigNumber.from(document.getElementById('wei').value);
+  // Listen transactions
+  useEffect(() => {
+    console.log("Will listen for transactions...")
 
-    console.log({
-      beneficiary,
-      arbiter,
-      value
-    })
+    // Pending transactions
+    provider.on("pending", (txHash) => {
+      console.log("Pending tx: " + txHash);
+    });
+
+    // Confirmed transactions
+    provider.on("transaction", (txHash) => {
+      console.log("Confirmed tx: " + txHash);
+    });
+  }, []);
+
+  console.log(escrows)
+
+  async function newContract() {
+    const value = ethers.BigNumber.from(wethValue).toString();
 
     const escrowContract = await deploy(signer, arbiter, beneficiary, value);
 
-    console.log("The escro sm")
+    const txHash = escrowContract.deployTransaction.hash;
+    const blockHash = escrowContract.deployTransaction.blockHash;
+    const blockNumber = escrowContract.deployTransaction.blockNumber;
 
     const escrow = {
       address: escrowContract.address,
       arbiter,
       beneficiary,
-      value: value.toString(),
+      value,
+      txHash,
+      blockHash,
+      blockNumber,
       handleApprove: async () => {
         escrowContract.on('Approved', () => {
-          document.getElementById(escrowContract.address).className =
-            'complete';
-          document.getElementById(escrowContract.address).innerText =
-            "✓ It's been approved!";
+           console.log( "✓ It's been approved!");
         });
 
         await approve(escrowContract, signer);
       },
+      
     };
 
     setEscrows([...escrows, escrow]);
@@ -70,23 +77,23 @@ function App() {
         {/* Create a new contract section */}
         <div className="bg-white shadow-lg my-6 mx-4 p-1">
           <h1 className="text-grotesk text-black"> New Contract </h1>
-          <label className="text-grotesk text-sm">
+          <label className="text-grotesk text-sm text-slate-700">
             Arbiter Address
-            <input type="text" id="arbiter" className="text-mono text-xs" />
+            <input className="text-mono text-md" value={arbiter} onChange={(e) => setArbiter(e.target.value)} />
           </label>
 
-          <label className="text-grotesk text-sm">
+          <label className="text-grotesk text-sm text-slate-700">
             Beneficiary Address
-            <input type="text" id="beneficiary" className="text-mono text-xs" />
+            <input className="text-mono text-md" value={beneficiary} onChange={(e) => setBeneficiary(e.target.value)} />
           </label>
 
-          <label className="text-grotesk text-sm">
+          <label className="text-grotesk text-sm text-slate-700">
             Deposit Amount (in Wei)
-            <input id="wei" type="text" className="text-xs" />
+            <input className="text-md" value={wethValue} onChange={(e) => setWethValue(e.target.value)} />
           </label>
 
           <div
-            className="text-grotesk w-fit bg-[#EBCB8B] text-center px-2 py-[0.3em] mx-4 text-black hover:cursor-pointer"
+            className="text-grotesk w-fit bg-[#EBCB8B] text-center px-2 py-[0.3em] mx-4 text-black hover:cursor-pointer text-sm md:text-md"
             onClick={(e) => {
               e.preventDefault();
               newContract();
