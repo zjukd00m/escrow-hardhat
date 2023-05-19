@@ -31,7 +31,6 @@ export default function Escrow({
         setIsMined(false);
       }
 
-      // TODO: Verify the transaction has been approved
     })()
   }, []);
 
@@ -56,7 +55,7 @@ export default function Escrow({
               isMined ? (
                 <div className="relative">
                   <div className="group">
-                    <ion-icon name="alert-outline" style={{ color: "#ff5555" }}></ion-icon>
+                    <ion-icon name="checkmark-outline" style={{ color: "#50fa7b" }}></ion-icon>
                     {/* <span className="bg-black inline group-hover:inline text-black text-xs text-mono rounded -left-1/2 bottom-full absolute p-1 bg-white opacity-90">
                       { txHash }
                     </span> */}

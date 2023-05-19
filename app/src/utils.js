@@ -33,6 +33,55 @@ export function validateWalletAddress(walletAddress) {
   }
 }
 
+// Fetch the user deployed contracts via the event logs
+export async function getTransacionsByUser(userAddress) {
+  const event = ethers.utils.toUtf8Bytes("ContractDeployed(address,address,address,uint256)");
+  const eventSignature = ethers.utils.keccak256(event);
+
+  const filters = {
+      fromBlock: "earliest",
+      toBlock: "latest",
+      address: null,
+      topics: [
+        eventSignature,
+        ethers.utils.hexZeroPad(userAddress, 32),
+      ]
+  }
+
+  try {
+    const eventLogs = await provider.getLogs(filters);
+
+    const contractData = [];
+
+    for (let i = 0; i < eventLogs?.length; i++) {
+
+      const eventLog = eventLogs[i];
+      // The event data is the concatenation of the hashed (keccak256) topics
+      const eventData = eventLog.data;
+
+      const eventInterface = new ethers.utils.Interface(Escrow.abi);
+      const decodedData = eventInterface.decodeEventLog("ContractDeployed", eventData)
+
+      if (!decodedData?.length) continue;
+
+      contractData.push({
+        address: eventLog.address,
+        arbiter: decodedData[1],
+        beneficiary: decodedData[2],
+        value: ethers.utils.formatEther(decodedData[3]),
+        txHash: eventLog.transactionHash,
+        blockHash: eventLog.blockHash,
+        blockNumber: eventLog.blockNumber,
+      });
+
+    }
+
+    return contractData;
+  } catch (error) {
+    return null;
+  }
+}
+
 // Contract functions
 
 export async function approve(escrowContract, signer) {
@@ -43,7 +92,10 @@ export async function approve(escrowContract, signer) {
 export async function isContractApproved(address) {
   const escrowContract = new ethers.Contract(address, Escrow.abi, provider);
 
-  const isApproved = await escrowContract.isApproved();
-
-  return isApproved;
+  try {
+    const isApproved = await escrowContract.isApproved();
+    return isApproved;
+  } catch (error) {
+    return false;
+  }
 }

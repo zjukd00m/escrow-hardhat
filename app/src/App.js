@@ -4,7 +4,7 @@ import deploy from './deploy';
 import Escrow from './Escrow';
 import Navbar from './components/Navbar/Navbar';
 import useAuth from './hooks/AuthHook';
-import { approve, provider } from './utils';
+import { approve, getTransacionsByUser, provider } from './utils';
 
 function App() {
   const [escrows, setEscrows] = useState([]);
@@ -28,7 +28,31 @@ function App() {
     });
   }, []);
 
-  console.log(escrows)
+  // Fetch existing user deployed contracts
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    (async() => {
+      let userTxs = await getTransacionsByUser(user.wallet);
+
+      userTxs = userTxs?.map((tx) => {
+        return {
+          ...tx,
+          handleApprove: async () => {
+            const escrowContract = new ethers.Contract(tx.address, Escrow.abi, provider);
+
+            escrowContract.on('Approved', () => {
+              console.log( "✓ It's been approved!");
+            });
+
+            await approve(escrowContract, signer);
+          },
+            }
+      })
+
+      setEscrows(userTxs);
+    })();
+  }, [isAuthenticated]);
 
   async function newContract() {
     const value = ethers.BigNumber.from(wethValue).toString();
