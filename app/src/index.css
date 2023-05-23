@@ -13,7 +13,8 @@ body {
   display: flex;
   font-family: 'Muli', scans-serif;
   color: white;
-  /* overflow-x: hidden; */
+  overflow-x: hidden;
+  overflow-y: hidden
 }
 
 .text-grotesk {

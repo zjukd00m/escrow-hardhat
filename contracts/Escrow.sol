@@ -2,34 +2,48 @@
 pragma solidity 0.8.17;
 
 contract Escrow {
-	address public arbiter;
-	address public beneficiary;
-	address public depositor;
+    address public arbiter;
+    address public beneficiary;
+    address public depositor;
 
-	bool public isApproved;
+    bool public isApproved;
 
-	event ApprovedEscrow (address indexed arbiter, address indexed beneficiary, address depositor);
-	event ContractDeployed (address indexed deployer, address arbiter, address beneficiary, uint256 value);
+    event ApprovedEscrow(
+        address indexed arbiter,
+        address indexed beneficiary,
+        address indexed depositor
+    );
+    event ContractDeployed(
+        address indexed deployer,
+        address indexed arbiter,
+        address indexed beneficiary,
+        uint256 value
+    );
 
-	constructor(address _arbiter, address _beneficiary) payable {
-		arbiter = _arbiter;
-		beneficiary = _beneficiary;
-		depositor = msg.sender;
+    constructor(address _arbiter, address _beneficiary) payable {
+        arbiter = _arbiter;
+        beneficiary = _beneficiary;
+        depositor = msg.sender;
 
-		emit ContractDeployed(depositor, arbiter, beneficiary, address(this).balance);
-	}
+        emit ContractDeployed(
+            depositor,
+            arbiter,
+            beneficiary,
+            address(this).balance
+        );
+    }
 
-	function approve() external {
-		require(msg.sender == arbiter);
+    function approve() external {
+        require(msg.sender == arbiter);
 
-		uint balance = address(this).balance;
+        uint balance = address(this).balance;
 
-		(bool sent, ) = payable(beneficiary).call{value: balance}("");
+        (bool sent, ) = payable(beneficiary).call{value: balance}("");
 
- 		require(sent, "Failed to send Ether");
+        require(sent, "Failed to send Ether");
 
-		emit ApprovedEscrow(arbiter, beneficiary, depositor);
+        emit ApprovedEscrow(arbiter, beneficiary, depositor);
 
-		isApproved = true;
-	}
+        isApproved = true;
+    }
 }
