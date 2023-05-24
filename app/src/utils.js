@@ -1,4 +1,4 @@
-import { Contract, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import Escrow from './artifacts/contracts/Escrow.sol/Escrow';
 
 // Provider functions
@@ -168,8 +168,14 @@ export async function getTransacionsByUser(userAddress) {
 
     const contractData = [];
 
+    const processedContracts = [];
+
     for (let i = 0; i < eventLogs?.length; i++) {
       const eventLog = eventLogs[i];
+
+      // Make sure to include non repeated blocks
+      if (processedContracts.includes(eventLog.address)) continue;
+      else processedContracts.push(eventLog.address);
 
       // Verify the user address is included in the topics, skip if not
       if (!eventLog.topics?.includes(ethers.utils.hexZeroPad(userAddress, 32)))

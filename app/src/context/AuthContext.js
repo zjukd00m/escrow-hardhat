@@ -1,4 +1,4 @@
-import { createContext, useReducer } from 'react';
+import { createContext, useEffect, useReducer } from 'react';
 
 const INITIAL_STATE = {
   isAuthenticated: false,
@@ -44,6 +44,26 @@ const AuthContext = createContext();
 
 export function AuthContextProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, INITIAL_STATE);
+
+  // When the chain id changes, reload the page to connect properly
+  useEffect(() => {
+    if (!window.ethereum) return;
+
+    window.ethereum.on('chainChanged', () => {
+      window.location.reload();
+    });
+  }, [window.ethereum]);
+
+  // When the user account changes, disconnect the page and log the user out
+  useEffect(() => {
+    if (!window.ethereum) return;
+
+    window.ethereum.on('accountsChanged', () => {
+      window.location.reload();
+      dispatch({ type: 'LOGOUT' });
+    });
+  }, [window.ethereum]);
+
   return (
     <AuthContext.Provider value={{ state, dispatch }}>
       {children}

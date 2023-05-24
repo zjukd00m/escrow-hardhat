@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
-import { isContractApproved, isContractDeployed, provider } from '../../utils';
+import { isContractApproved, provider } from '../../utils';
 import { ethers } from 'ethers';
 import useAuth from '../../hooks/AuthHook';
 import EscrowArtifact from '../../artifacts/contracts/Escrow.sol/Escrow.json';
 
-function copyToClipboard(address) {}
-
-// TODO: Add a small loader animation when the contract creation transaction has not been mined
 export default function Escrow({
   address,
   arbiter,
@@ -14,14 +11,23 @@ export default function Escrow({
   value,
   handleApprove,
   txHash,
-  _isMined,
   _isApproved,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isApproved, setIsApproved] = useState(_isApproved);
-  const [isMined, setIsMined] = useState(_isMined);
+  const [copiedToClipboad, setCopiedToClipboard] = useState(false);
 
   const { user } = useAuth();
+
+  async function copyToClipboard(address) {
+    await window.navigator.clipboard.writeText(address);
+
+    setCopiedToClipboard(true);
+
+    setTimeout(() => {
+      setCopiedToClipboard(false);
+    }, 3000);
+  }
 
   // Listen for the deployment of the smart contract and change its state (ContractDeployed solidity event)
   useEffect(() => {
@@ -36,12 +42,18 @@ export default function Escrow({
         provider
       );
 
-      escrowContract.once('ContractDeployed', () => {
-        console.log({ address });
-        // console.log(escrowContract);
-        setIsMined(true);
+      escrowContract.once('ApprovedEscrow', () => {
+        setIsApproved(true);
       });
     })();
+
+    // On unmounted component, remove the contract listeners
+    return () => {
+      if (escrowContract) {
+        escrowContract.removeAllListeners('ContractDeployed');
+        escrowContract.removeAllListeners('ApprovedEscrow');
+      }
+    };
   }, [provider]);
 
   // Verify if the contract has been approved
@@ -50,10 +62,8 @@ export default function Escrow({
 
     (async () => {
       const _approved = await isContractApproved(address);
-      const isDeployed = await isContractDeployed(txHash, address);
 
       setIsApproved(_approved);
-      setIsMined(isDeployed);
     })();
   }, [address]);
 
@@ -63,26 +73,27 @@ export default function Escrow({
         <div className="m-3">
           <div className="flex items-center justify-between mb-3">
             <p className="text-grotesk text-sm md:text-md grow">
-              {' '}
-              Contract address{' '}
+              Contract address
             </p>
             <div className="text-mono text-xs rounded-lg p-1 bg-[#6272a4] text-white w-fit">
               {user?.wallet?.length && user.wallet === arbiter ? (
                 <p className="">Arbiter</p>
-              ) : user.wallet === beneficiary ? (
+              ) : user?.wallet?.length && user.wallet === beneficiary ? (
                 <p className="">Beneficiary</p>
-              ) : (
+              ) : user?.wallet?.length ? (
                 <p className=""> Depositor </p>
+              ) : (
+                <p className=""> Loading... </p>
               )}
             </div>
-            {isMined ? (
+            {isApproved ? (
               <div className="relative ml-5">
                 <div className="group flex gap-2 bg-[#6272a4] p-1 rounded-lg">
                   <ion-icon
                     name="checkmark-outline"
                     style={{ color: '#50fa7b' }}
                   ></ion-icon>
-                  <p className="text-xs text-mono"> Mined </p>
+                  <p className="text-xs text-mono"> Approved </p>
                 </div>
               </div>
             ) : (
@@ -92,17 +103,21 @@ export default function Escrow({
                     name="alert-outline"
                     style={{ color: '#ff5555' }}
                   ></ion-icon>
-                  <p className="text-xs text-mono"> Not mined </p>
+                  <p className="text-xs text-mono"> Waiting </p>
                 </div>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative">
             <p className="text-mono text-sm"> {address} </p>
-            <ion-icon
-              name="clipboard-outline"
-              onClick={() => copyToClipboard(address)}
-            ></ion-icon>
+            {!copiedToClipboad ? (
+              <ion-icon
+                name="clipboard-outline"
+                onClick={() => copyToClipboard(address)}
+              ></ion-icon>
+            ) : (
+              <ion-icon name="checkbox-outline"></ion-icon>
+            )}
           </div>
         </div>
         <div className="flex flex-row-reverse md:flex-col md:items-end items-center">
@@ -165,6 +180,23 @@ export default function Escrow({
                 <span className="">
                   {value ? ` (${ethers.utils.formatEther(value)} ETH)` : null}
                 </span>
+              </div>
+            </li>
+            <li className="p-3">
+              <div className="text-grotesk text-white uppercase text-sm mb-1">
+                TX Hash
+              </div>
+              <div className="w-2/3">
+                <div
+                  className="text-white text-mono md:text-sm text-xs truncate hover:text-[#50fa7b] hover:opacity-80 cursor-pointer"
+                  onClick={() => {
+                    console.log(
+                      `I will take you to the polygon scan with tx hash => ${txHash}`
+                    );
+                  }}
+                >
+                  {txHash}
+                </div>
               </div>
             </li>
           </ul>

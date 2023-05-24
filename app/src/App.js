@@ -41,10 +41,6 @@ function App() {
               provider
             );
 
-            escrowContract.on('ApprovedEscrow', () => {
-              console.log("✓ It's been approved!");
-            });
-
             await approve(escrowContract, signer);
           },
         };
@@ -54,7 +50,7 @@ function App() {
     })();
   }, [isAuthenticated]);
 
-  // Set the user balancer in ETH
+  // Set the current user balance in ETH
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -69,11 +65,6 @@ function App() {
 
     const escrowContract = await deploy(signer, arbiter, beneficiary, value);
 
-    console.log({
-      blockNumber: escrowContract.deployTransaction.blockNumber,
-      blockHash: escrowContract.deployTransaction.blockHash,
-    });
-
     const escrow = {
       address: escrowContract.address,
       arbiter,
@@ -81,10 +72,6 @@ function App() {
       value,
       txHash: escrowContract.deployTransaction.hash,
       handleApprove: async () => {
-        escrowContract.on('ApprovedEscrow', () => {
-          console.log("✓ It's been approved!");
-        });
-
         await approve(escrowContract, signer);
       },
     };
