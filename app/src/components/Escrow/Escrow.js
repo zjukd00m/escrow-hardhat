@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getTransactionData, isContractApproved } from '../../utils';
-import { Contract, ethers } from 'ethers';
+import { isContractApproved, isContractDeployed, provider } from '../../utils';
+import { ethers } from 'ethers';
 import useAuth from '../../hooks/AuthHook';
+import EscrowArtifact from '../../artifacts/contracts/Escrow.sol/Escrow.json';
 
 function copyToClipboard(address) {}
 
@@ -11,10 +12,8 @@ export default function Escrow({
   arbiter,
   beneficiary,
   value,
-  txHash,
-  blockHash,
-  blockNumber,
   handleApprove,
+  txHash,
   _isMined,
   _isApproved,
 }) {
@@ -24,19 +23,26 @@ export default function Escrow({
 
   const { user } = useAuth();
 
-  // Verify if the transaction is confirmed or pending
+  // Listen for the deployment of the smart contract and change its state (ContractDeployed solidity event)
   useEffect(() => {
-    (async () => {
-      const txData = await getTransactionData(txHash);
+    if (!provider) return;
 
-      // Verify the transaction is confirmed or mined
-      if (txData.confirmations > 0) {
+    let escrowContract = null;
+
+    (async () => {
+      escrowContract = new ethers.Contract(
+        address,
+        EscrowArtifact.abi,
+        provider
+      );
+
+      escrowContract.once('ContractDeployed', () => {
+        console.log({ address });
+        // console.log(escrowContract);
         setIsMined(true);
-      } else {
-        setIsMined(false);
-      }
+      });
     })();
-  }, []);
+  }, [provider]);
 
   // Verify if the contract has been approved
   useEffect(() => {
@@ -44,15 +50,12 @@ export default function Escrow({
 
     (async () => {
       const _approved = await isContractApproved(address);
+      const isDeployed = await isContractDeployed(txHash, address);
 
       setIsApproved(_approved);
+      setIsMined(isDeployed);
     })();
   }, [address]);
-
-  console.log({
-    wallet: user?.wallet,
-    arbiter,
-  });
 
   return (
     <div className="flex flex-col items-start justify-between m-2 bg-[#2E3440] border border-slate-600">
@@ -63,28 +66,33 @@ export default function Escrow({
               {' '}
               Contract address{' '}
             </p>
+            <div className="text-mono text-xs rounded-lg p-1 bg-[#6272a4] text-white w-fit">
+              {user?.wallet?.length && user.wallet === arbiter ? (
+                <p className="">Arbiter</p>
+              ) : user.wallet === beneficiary ? (
+                <p className="">Beneficiary</p>
+              ) : (
+                <p className=""> Depositor </p>
+              )}
+            </div>
             {isMined ? (
-              <div className="relative">
-                <div className="group">
+              <div className="relative ml-5">
+                <div className="group flex gap-2 bg-[#6272a4] p-1 rounded-lg">
                   <ion-icon
                     name="checkmark-outline"
                     style={{ color: '#50fa7b' }}
                   ></ion-icon>
-                  {/* <span className="bg-black inline group-hover:inline text-black text-xs text-mono rounded -left-1/2 bottom-full absolute p-1 bg-white opacity-90">
-                      { txHash }
-                    </span> */}
+                  <p className="text-xs text-mono"> Mined </p>
                 </div>
               </div>
             ) : (
-              <div className="relative">
-                <div className="group">
+              <div className="relative ml-5">
+                <div className="group flex gap-2 bg-[#6272a4] p-1 rounded-lg">
                   <ion-icon
                     name="alert-outline"
                     style={{ color: '#ff5555' }}
                   ></ion-icon>
-                  {/* <span className="bg-black inline group-hover:inline text-black text-xs text-mono rounded left-1 top-0 absolute p-1 bg-white opacity-90">
-                      The contract has not been deployed yet
-                    </span> */}
+                  <p className="text-xs text-mono"> Not mined </p>
                 </div>
               </div>
             )}

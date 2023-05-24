@@ -4,7 +4,13 @@ import Navbar from './components/Navbar/Navbar';
 import Escrow from './components/Escrow/Escrow';
 import EscrowInterface from './artifacts/contracts/Escrow.sol/Escrow';
 import useAuth from './hooks/AuthHook';
-import { approve, deploy, getTransacionsByUser, provider } from './utils';
+import {
+  approve,
+  deploy,
+  getTransacionsByUser,
+  getUserBalance,
+  provider,
+} from './utils';
 
 function App() {
   const [escrows, setEscrows] = useState([]);
@@ -12,9 +18,10 @@ function App() {
     '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65'
   );
   const [arbiter, setArbiter] = useState(
-    '0xbDA5747bFD65F08deb54cb465eB87D40e51B197E'
+    '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955'
   );
   const [wethValue, setWethValue] = useState('1000000000000000000');
+  const [userBalance, setUserBalance] = useState(null);
   const { isAuthenticated, user, signer } = useAuth();
 
   // Fetch existing user deployed contracts
@@ -23,9 +30,6 @@ function App() {
 
     (async () => {
       let userTxs = await getTransacionsByUser(user.wallet);
-
-      console.log('user txns');
-      console.log(userTxs.length);
 
       userTxs = userTxs?.map((event) => {
         return {
@@ -50,32 +54,24 @@ function App() {
     })();
   }, [isAuthenticated]);
 
+  // Set the user balancer in ETH
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    (async () => {
+      const _userBalance = await getUserBalance(user.wallet);
+      setUserBalance(_userBalance);
+    })();
+  }, [isAuthenticated]);
+
   async function newContract() {
     const value = ethers.BigNumber.from(wethValue).toString();
 
     const escrowContract = await deploy(signer, arbiter, beneficiary, value);
 
-    const txHash = escrowContract.deployTransaction.hash;
-    const blockHash = escrowContract.deployTransaction.blockHash;
-    const blockNumber = escrowContract.deployTransaction.blockNumber;
-
-    // TODO: add the listener to change the 'Existing Contract' from not-mined to mined
-    escrowContract.once('ContractDeployed', async () => {
-      console.log('The contract has been deployed');
-      console.log(escrowContract.deployTransaction.from);
-      console.log(escrowContract.deployTransaction.to);
-      console.log(escrowContract.deployTransaction.data);
-      console.log({
-        txHash,
-        address: escrowContract.address,
-        escrows,
-      });
-
-      // escrow._isMined = true;
-
-      // const _escrows = escrows.filter((escrow) => escrow.txHash !== _txHash);
-
-      // setEscrows([..._escrows, escrow]);
+    console.log({
+      blockNumber: escrowContract.deployTransaction.blockNumber,
+      blockHash: escrowContract.deployTransaction.blockHash,
     });
 
     const escrow = {
@@ -83,9 +79,7 @@ function App() {
       arbiter,
       beneficiary,
       value,
-      txHash,
-      blockHash,
-      blockNumber,
+      txHash: escrowContract.deployTransaction.hash,
       handleApprove: async () => {
         escrowContract.on('ApprovedEscrow', () => {
           console.log("✓ It's been approved!");
@@ -93,8 +87,6 @@ function App() {
 
         await approve(escrowContract, signer);
       },
-      _isApproved: false,
-      _isMined: false,
     };
 
     setEscrows([...escrows, escrow]);
@@ -112,6 +104,9 @@ function App() {
             {' '}
             Welcome:{' '}
             <span className="semibold text-mono"> {user?.wallet} </span>{' '}
+          </p>
+          <p className="text-mono text-sm">
+            Balance (in ETH): <span className="text-sm"> {userBalance} </span>
           </p>
         </div>
       ) : null}
