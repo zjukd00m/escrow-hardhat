@@ -27,7 +27,9 @@ export default function useAuth() {
 
     const signer = provider.getSigner();
 
-    dispatch({ type: 'LOGIN', payload: { wallet: accounts[0], signer } });
+    dispatch({ type: 'LOGIN', payload: { wallet: accounts[1], signer } });
+
+    return accounts[1];
   }
 
   async function logout() {

@@ -11,15 +11,12 @@ import {
   getUserBalance,
   provider,
 } from './utils';
+import { addContract, getUserContracts } from './api';
 
 function App() {
   const [escrows, setEscrows] = useState([]);
-  const [beneficiary, setBeneficiary] = useState(
-    '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65'
-  );
-  const [arbiter, setArbiter] = useState(
-    '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955'
-  );
+  const [beneficiary, setBeneficiary] = useState('');
+  const [arbiter, setArbiter] = useState('');
   const [wethValue, setWethValue] = useState('1000000000000000000');
   const [userBalance, setUserBalance] = useState(null);
   const { isAuthenticated, user, signer } = useAuth();
@@ -50,6 +47,22 @@ function App() {
     })();
   }, [isAuthenticated]);
 
+  // TODO: Fetch existing user deployed contracts from the api
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    (async () => {
+      try {
+        const userContracts = await getUserContracts(user.wallet);
+
+        if (!userContracts?.length) return;
+
+      } catch (error) {
+        alert(error.message);
+      }
+    })();
+  }, [isAuthenticated]);
+
   // Set the current user balance in ETH
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -61,22 +74,55 @@ function App() {
   }, [isAuthenticated]);
 
   async function newContract() {
+    if (!isAuthenticated) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
+    if (!parseInt(wethValue)) {
+      alert('Must provide a valid value (in WETH)');
+      return;
+    }
+
+    if (!ethers.utils.isAddress(arbiter)) {
+      alert('Must provide a valid ethereum address for the arbiter');
+      return;
+    }
+
+    if (!ethers.utils.isAddress(beneficiary)) {
+      alert('Must provide a valid ethereum address for the benefiary');
+      return;
+    }
+
     const value = ethers.BigNumber.from(wethValue).toString();
 
-    const escrowContract = await deploy(signer, arbiter, beneficiary, value);
+    try {
+      // Deploy the contract
+      const escrowContract = await deploy(signer, arbiter, beneficiary, value);
 
-    const escrow = {
-      address: escrowContract.address,
-      arbiter,
-      beneficiary,
-      value,
-      txHash: escrowContract.deployTransaction.hash,
-      handleApprove: async () => {
-        await approve(escrowContract, signer);
-      },
-    };
+      // Register the contract on the db using the api
+      await addContract({
+        contractAddress: escrowContract.address,
+        arbiter,
+        beneficiary,
+        deployer: user.wallet,
+      });
 
-    setEscrows([...escrows, escrow]);
+      const escrow = {
+        address: escrowContract.address,
+        arbiter,
+        beneficiary,
+        value,
+        txHash: escrowContract.deployTransaction.hash,
+        handleApprove: async () => {
+          await approve(escrowContract, signer);
+        },
+      };
+
+      setEscrows([...escrows, escrow]);
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   return (
@@ -97,6 +143,7 @@ function App() {
           </p>
         </div>
       ) : null}
+
       <div className="grid grid-cols-1 lg:grid-cols-2">
         {/* Create a new contract section */}
         <div className="">
