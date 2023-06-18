@@ -1,6 +1,6 @@
 const API_URL = "http://localhost:8090";
 
-const headers = { "ContentType": "application/json" };
+const headers = { "Content-Type": "application/json" };
 
 const createUser = (userWallet) => fetch(`${API_URL}/api/users`, {
         headers,
@@ -25,7 +25,7 @@ const addContract = ({
         method: "POST",
     })
         .then((res) => res.json());
-            
+
 const getUserContracts = (userWallet) => fetch(`${API_URL}/api/contracts?userAddress=${userWallet}`)
         .then((res) => res.json());
 

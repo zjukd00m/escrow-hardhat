@@ -39,10 +39,6 @@ async function main() {
         origin: "*",
     }));
 
-    // Serve the react index page
-    app.get("/", (req, res) => {
-        res.send("hello");
-    });
 
     // --- Mongo REST API
     // Register a new user with its wallet public address
@@ -50,8 +46,6 @@ async function main() {
         if (!req.body.userWallet) {
             return res.sendStatus(422);
         }
-
-        console.log("Here!")
 
         const { userWallet } = req.body;
 
@@ -62,7 +56,7 @@ async function main() {
 
         try {
 
-            const existingUser = await User.findOne({ wallet: userWallet });
+            const existingUser = await User.findOne({ wallet: userWallet.trim().toLowerCase() });
 
             if (existingUser)
                 return res.status(400).json({
@@ -70,7 +64,7 @@ async function main() {
                 });
 
             const user = await User.create({
-                wallet: userWallet,
+                wallet: userWallet.trim().toLowerCase(),
             });
 
             res.json(user);
@@ -92,10 +86,7 @@ async function main() {
         }
 
         try {
-            const contracts = await Contract.find({ wallets: { $in: [userAddress] } }).exec();
-
-            console.log("The contracts")
-            console.log(contracts)
+            const contracts = await Contract.find({ wallets: { $in: [userAddress.trim().toLowerCase()] } }).exec();
 
             res.json({ contracts });
         } catch (error) {
@@ -105,7 +96,7 @@ async function main() {
 
     // Register a new contract that was recently minted
     app.post("/api/contracts", async (req, res) => {
-        const {
+        let {
             contractAddress,
             arbiter,
             beneficiary,
@@ -127,6 +118,10 @@ async function main() {
         if (!validAddresses.every(element => element === true)) {
             return res.sendStatus(422);
         }
+
+        arbiter = arbiter.trim().toLowerCase();
+        beneficiary = beneficiary.trim().toLowerCase();
+        deployer = deployer.trim().toLowerCase();
 
         try {
             const contract = new Contract({

@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  polygon_escrow_app:
+    build: .
+    container_name: polygon-escrow-app
+    restart: always
+    ports:
+      - "3010:3000"
+    depends_on:
+      - polygon_escrow_db
+
+  polygon_escrow_db:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: polygon-escrow-db
+    restart: always
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME:
+      MONGO_INITDB_ROOT_PASSWORD:
+
+  polygon_escrow_server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: polygon-escrow-server
+    ports:
+      - "8090:8090"
+    environment:
+      - POLYGON_ESCROW_MONGO_URL=
+    depends_on:
+      - polygon_escrow_db

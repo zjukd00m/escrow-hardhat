@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import { useEffect, useState } from 'react';
 import Navbar from './components/Navbar/Navbar';
 import Escrow from './components/Escrow/Escrow';
@@ -12,6 +11,7 @@ import {
   provider,
 } from './utils';
 import { addContract, getUserContracts } from './api';
+import { ethers } from "ethers";
 
 function App() {
   const [escrows, setEscrows] = useState([]);
@@ -20,40 +20,47 @@ function App() {
   const [wethValue, setWethValue] = useState('1000000000000000000');
   const [userBalance, setUserBalance] = useState(null);
   const { isAuthenticated, user, signer } = useAuth();
+  const [errors, setErrors] = useState({
+    wethValue: null,
+    arbiter: null,
+    beneficiary: null,
+  });
 
   // Fetch existing user deployed contracts
-  useEffect(() => {
-    if (!isAuthenticated) return;
+  // useEffect(() => {
+  //   if (!isAuthenticated) return;
+  //   (async () => {
+  //     let userTxs = await getTransacionsByUser(user.wallet);
 
-    (async () => {
-      let userTxs = await getTransacionsByUser(user.wallet);
+  //     userTxs = userTxs?.map((event) => {
+  //       return {
+  //         ...event,
+  //         handleApprove: async () => {
+  //           const escrowContract = new ethers.Contract(
+  //             event.address,
+  //             EscrowInterface.abi,
+  //             provider
+  //           );
 
-      userTxs = userTxs?.map((event) => {
-        return {
-          ...event,
-          handleApprove: async () => {
-            const escrowContract = new ethers.Contract(
-              event.address,
-              EscrowInterface.abi,
-              provider
-            );
+  //           await approve(escrowContract, signer);
+  //         },
+  //       };
+  //     });
 
-            await approve(escrowContract, signer);
-          },
-        };
-      });
-
-      setEscrows(userTxs);
-    })();
-  }, [isAuthenticated]);
+  //     setEscrows(userTxs);
+  //   })();
+  // }, [isAuthenticated]);
 
   // TODO: Fetch existing user deployed contracts from the api
   useEffect(() => {
     if (!isAuthenticated) return;
-
+    
     (async () => {
       try {
         const userContracts = await getUserContracts(user.wallet);
+
+        console.log("The user contracts");
+        console.log(userContracts);
 
         if (!userContracts?.length) return;
 
@@ -73,24 +80,56 @@ function App() {
     })();
   }, [isAuthenticated]);
 
+
+  // Deploy the contract if the user has enough funds
+  // and then register the smart contract using the API
   async function newContract() {
     if (!isAuthenticated) {
       alert("Please connect your wallet first");
       return;
     }
-
-    if (!parseInt(wethValue)) {
-      alert('Must provide a valid value (in WETH)');
+    
+    if (!arbiter?.length) {
+      setErrors((errors) => ({...errors, arbiter: "Invalid arbiter address" }));
       return;
+    } else {
+      setErrors((errors) => ({...errors, arbiter: null }));
     }
 
-    if (!ethers.utils.isAddress(arbiter)) {
-      alert('Must provide a valid ethereum address for the arbiter');
+    if (!beneficiary?.length) {
+      setErrors((errors) => ({...errors, beneficiary: "Invalid arbiter address" }));
       return;
+    } else {
+      setErrors((errors) => ({...errors, beneficiary: null }));
     }
 
-    if (!ethers.utils.isAddress(beneficiary)) {
-      alert('Must provide a valid ethereum address for the benefiary');
+    if (!wethValue?.length) {
+      setErrors((errors) => ({...errors, wethValue: "Invalid arbiter address" }));
+      return;
+    } else {
+      setErrors((errors) => ({...errors, wethValue: null }));
+    }
+
+    if (beneficiary === arbiter) {
+      setErrors((errors) => ({...errors, beneficiary: "Beneficiary can't be the same as the arbiter" }));
+      return;
+    } else {
+      setErrors((errors) => ({...errors, beneficiary: null }));
+    }
+
+    if (user.wallet === beneficiary) {
+      setErrors((errors) => ({...errors, beneficiary: "Beneficiary can't be the same as the contract deployer" }));
+      return;
+    } else {
+      setErrors((errors) => ({...errors, beneficiary: null }));
+    }
+    
+    if (
+      errors.arbiter?.length || 
+      errors.beneficiary?.length || 
+      errors.wethValue?.length
+    ) {
+      alert("Make sure to fix the errors before creating the contract");
       return;
     }
 
@@ -98,9 +137,10 @@ function App() {
 
     try {
       // Deploy the contract
-      const escrowContract = await deploy(signer, arbiter, beneficiary, value);
+      const escrowContract = await deploy(signer, arbiter, beneficiary, value)
 
       // Register the contract on the db using the api
+      // TODO ---->
       await addContract({
         contractAddress: escrowContract.address,
         arbiter,
@@ -121,7 +161,39 @@ function App() {
 
       setEscrows([...escrows, escrow]);
     } catch (error) {
-      alert(error.message);
+      // JSON-RPC error
+      if (error.data?.message) {
+        alert(error.data.message);
+      } else {
+        alert(error.message);
+      }
+    }
+  }
+
+  function handleSetArbiter(address) {
+    setArbiter(address);
+    if (!ethers.utils.isAddress(address)) {
+      setErrors((errors) => ({...errors, arbiter: "Invalid arbiter address" }));
+    } else {
+      setErrors((errors) => ({...errors, arbiter: null }));
+    }
+  }
+
+  function handleSetBeneficiary(address) {
+    setBeneficiary(address);
+    if (!ethers.utils.isAddress(address)) {
+      setErrors((errors) => ({...errors, beneficiary: "Invalid arbiter address" }));
+    } else {
+      setErrors((errors) => ({...errors, beneficiary: null }));
+    }
+  }
+
+  function handleSetWethValue(value) {
+    setWethValue(value);
+    if (value.matchAll(/^[\d]+$/)) {
+      setErrors((errors) => ({...errors, wethValue: "Invalid WETH value provided" }));
+    } else {
+      setErrors((errors) => ({...errors, wethValue: null }));
     }
   }
 
@@ -134,9 +206,8 @@ function App() {
       {isAuthenticated ? (
         <div className="mt-6 mx-4">
           <p className="text-sm text-grotesk">
-            {' '}
-            Welcome:{' '}
-            <span className="semibold text-mono"> {user?.wallet} </span>{' '}
+            Welcome:
+            <span className="semibold text-mono"> {user?.wallet} </span>
           </p>
           <p className="text-mono text-sm">
             Balance (in ETH): <span className="text-sm"> {userBalance} </span>
@@ -154,28 +225,48 @@ function App() {
               <input
                 className="text-mono text-md"
                 value={arbiter}
-                onChange={(e) => setArbiter(e.target.value)}
+                onChange={(e) => handleSetArbiter(e.target.value)}
               />
+              {
+                errors.arbiter?.length ? (
+                  <div className="mt-1">
+                    <p className="text-[11px] text-red-500"> { errors.arbiter } </p>
+                  </div>
+                ) : null
+              }
             </label>
-
+            <hr />
             <label className="text-grotesk text-sm text-slate-700">
               Beneficiary Address
               <input
                 className="text-mono text-md"
                 value={beneficiary}
-                onChange={(e) => setBeneficiary(e.target.value)}
+                onChange={(e) => handleSetBeneficiary(e.target.value)}
               />
+              {
+                errors.beneficiary?.length ? (
+                  <div className="mt-1">
+                    <p className="text-[11px] text-red-500"> { errors.beneficiary } </p>
+                  </div>
+                ) : null
+              }
             </label>
-
+            <hr />
             <label className="text-grotesk text-sm text-slate-700">
               Deposit Amount (in Wei)
               <input
                 className="text-md"
                 value={wethValue}
-                onChange={(e) => setWethValue(e.target.value)}
+                onChange={(e) => handleSetWethValue(e.target.value)}
               />
+              {
+                errors.wethValue?.length ? (
+                  <div className="mt-1">
+                    <p className="text-[11px] text-red-500"> { errors.wethValue } </p>
+                  </div>
+                ) : null
+              }
             </label>
-
             <div
               className="text-grotesk w-fit bg-[#EBCB8B] text-center px-2 py-[0.3em] mx-4 text-black hover:cursor-pointer text-sm md:text-md"
               onClick={(e) => {
