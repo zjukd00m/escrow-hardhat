@@ -26,42 +26,13 @@ function App() {
     beneficiary: null,
   });
 
-  // Fetch existing user deployed contracts
-  // useEffect(() => {
-  //   if (!isAuthenticated) return;
-  //   (async () => {
-  //     let userTxs = await getTransacionsByUser(user.wallet);
-
-  //     userTxs = userTxs?.map((event) => {
-  //       return {
-  //         ...event,
-  //         handleApprove: async () => {
-  //           const escrowContract = new ethers.Contract(
-  //             event.address,
-  //             EscrowInterface.abi,
-  //             provider
-  //           );
-
-  //           await approve(escrowContract, signer);
-  //         },
-  //       };
-  //     });
-
-  //     setEscrows(userTxs);
-  //   })();
-  // }, [isAuthenticated]);
-
-  // TODO: Fetch existing user deployed contracts from the api
+  // TODO: [x] Fetch existing user deployed contracts from the api
   useEffect(() => {
     if (!isAuthenticated) return;
     
     (async () => {
       try {
         const userContracts = await getUserContracts(user.wallet);
-
-        console.log("The user contracts");
-        console.log(userContracts);
-
         if (!userContracts?.length) return;
 
       } catch (error) {
@@ -75,8 +46,9 @@ function App() {
     if (!isAuthenticated) return;
 
     (async () => {
-      const _userBalance = await getUserBalance(user.wallet);
-      setUserBalance(_userBalance);
+      // const _userBalance = await getUserBalance(user.wallet);
+      // setUserBalance(_userBalance);
+      setUserBalance(100);
     })();
   }, [isAuthenticated]);
 

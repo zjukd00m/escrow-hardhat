@@ -4,6 +4,7 @@ const http = require("http");
 const mongoose = require("mongoose");
 const ethers = require("ethers");
 const cors = require("cors");
+const morgan = require("morgan");
 require("dotenv").config({ path: "./.env" });
 
 const MONGO_URL = process.env.POLYGON_ESCROW_MONGO_URL;
@@ -33,6 +34,7 @@ async function main() {
 
     const app = express();
 
+    app.use(morgan("dev"));
     app.use(helmet());
     app.use(express.json());
     app.use(cors({
@@ -58,10 +60,11 @@ async function main() {
 
             const existingUser = await User.findOne({ wallet: userWallet.trim().toLowerCase() });
 
-            if (existingUser)
+            if (existingUser) {
                 return res.status(400).json({
                     message: "There's an existing user with that address"
                 });
+            }
 
             const user = await User.create({
                 wallet: userWallet.trim().toLowerCase(),
@@ -135,9 +138,32 @@ async function main() {
         }
     });
 
+    // Does the given account exist ?
+    // app.get("/api/users/:userAddress", async (req, res) => {
+    //     const userAddress = req.params.userAddress;
+
+    //     if (!userAddress?.length)
+    //         return res.sendStatus(422);
+
+    //     if (!ethers.isAddress(userAddress))
+    //         return res.sendStatus(422);
+
+    //     try {
+    //         const userExist = await User.exists({
+    //             wallet: userAddress.trim().toLowerCase(),
+    //         });
+
+    //         const value = userExist?._id?.toString()?.length ? true : false;
+
+    //         res.send({ userExist: value });
+    //     } catch (error) {
+    //         return res.status(500).json({ message: error.message });
+    //     }
+    // });
+
     const server = http.createServer(app);
 
-    server.listen(8090, () => console.log("..."));
+    server.listen(8090, "localhost", () => console.log("..."));
 }
 
 main();

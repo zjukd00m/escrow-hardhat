@@ -1,6 +1,7 @@
 import { useContext, useEffect } from 'react';
 import { ethers } from 'ethers';
 import AuthContext from '../context/AuthContext';
+import { createUser, userExist } from '../api';
 
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 
@@ -23,13 +24,22 @@ export default function useAuth() {
   }, [state.isAuthenticated]);
 
   async function login() {
-    const accounts = await provider.send('eth_requestAccounts', {});
+    await provider.send('eth_requestAccounts', {});
 
     const signer = provider.getSigner();
 
-    dispatch({ type: 'LOGIN', payload: { wallet: accounts[1], signer } });
+    const userWallet = await signer.getAddress();
 
-    return accounts[1];
+    await createUser(userWallet)
+      .then((r) => {
+        console.log("The user was created");
+        console.log(r);
+      })
+      .catch((error) => {
+        console.error(error.message)
+      });
+
+    dispatch({ type: 'LOGIN', payload: { wallet: userWallet, signer } });
   }
 
   async function logout() {

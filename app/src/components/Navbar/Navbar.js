@@ -1,23 +1,15 @@
 import { useState } from 'react';
 import useAuth from '../../hooks/AuthHook';
-import { createUser } from '../../api';
+
 
 export default function Navbar() {
   const [collapsed, setCollapsed] = useState(true);
-  const { isAuthenticated, login, logout } = useAuth();
+  const { isAuthenticated, login, logout, user } = useAuth();
 
-  // TODO: Handle the api call
-  async function handleConnectWallet() {
-    try {
-      // Login first
-      const userWallet = await login();
-      // Then try to create a new account at the db
-      await createUser(userWallet)
-        .catch((res) => console.log(res));
-    } catch (error) {
-      alert(error.message);
-    }
-  }
+  const handleConnectWallet = () => login()
+    .catch((error) => {
+        alert(error.message);
+    });
 
   return (
     <div className="w-screen shadow-lg">
