@@ -17,6 +17,11 @@ export async function deploy(signer, arbiter, beneficiary, value) {
     signer
   );
 
+  console.log("Will deploy the contract with")
+  console.log({
+    arbiter, beneficiary, value
+  })
+
   const contract = await factory.deploy(arbiter, beneficiary, { value });
 
   return contract;
@@ -231,4 +236,13 @@ export async function isContractApproved(address) {
   } catch (error) {
     return false;
   }
+}
+
+export async function getContractData(contract) {
+  const { address } = contract;
+
+  const contractBalance = await provider.getBalance(address);
+
+  return ethers.utils.parseEther(contractBalance);
+
 }

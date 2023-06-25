@@ -31,15 +31,12 @@ export default function useAuth() {
     const userWallet = await signer.getAddress();
 
     await createUser(userWallet)
-      .then((r) => {
-        console.log("The user was created");
-        console.log(r);
+      .then(() => {
+        dispatch({ type: 'LOGIN', payload: { wallet: userWallet, signer } });
       })
       .catch((error) => {
         console.error(error.message)
       });
-
-    dispatch({ type: 'LOGIN', payload: { wallet: userWallet, signer } });
   }
 
   async function logout() {

@@ -6,18 +6,17 @@ import useAuth from './hooks/AuthHook';
 import {
   approve,
   deploy,
-  getTransacionsByUser,
+  getContractData,
   getUserBalance,
-  provider,
 } from './utils';
 import { addContract, getUserContracts } from './api';
 import { ethers } from "ethers";
 
 function App() {
   const [escrows, setEscrows] = useState([]);
-  const [beneficiary, setBeneficiary] = useState('');
-  const [arbiter, setArbiter] = useState('');
-  const [wethValue, setWethValue] = useState('1000000000000000000');
+  const [beneficiary, setBeneficiary] = useState('0x15dBed50f0250B7D1459741de281057Dc277E7F7');
+  const [arbiter, setArbiter] = useState('0x5Cd818d08A30091da451df3710965dF5659c1873');
+  const [wethValue, setWethValue] = useState('1');
   const [userBalance, setUserBalance] = useState(null);
   const { isAuthenticated, user, signer } = useAuth();
   const [errors, setErrors] = useState({
@@ -33,7 +32,16 @@ function App() {
     (async () => {
       try {
         const userContracts = await getUserContracts(user.wallet);
-        if (!userContracts?.length) return;
+
+        if (!userContracts?.contracts?.length) return;
+
+        const parsedContracts = await Promise.all(
+          userContracts.contracts.map((contract) => getContractData(contract))
+        );
+
+        console.log("The user contracts");
+        console.log(parsedContracts);
+
 
       } catch (error) {
         alert(error.message);
@@ -46,12 +54,17 @@ function App() {
     if (!isAuthenticated) return;
 
     (async () => {
-      // const _userBalance = await getUserBalance(user.wallet);
-      // setUserBalance(_userBalance);
-      setUserBalance(100);
+      try {
+        const _userBalance = await getUserBalance(user.wallet);
+
+        console.log({ _userBalance })
+
+        setUserBalance(_userBalance);
+      } catch (error) {
+        console.error(error.message);
+      }
     })();
   }, [isAuthenticated]);
-
 
   // Deploy the contract if the user has enough funds
   // and then register the smart contract using the API
@@ -60,48 +73,46 @@ function App() {
       alert("Please connect your wallet first");
       return;
     }
+
+    let deployErrors = {
+      beneficiary: null,
+      arbiter: null,
+      wethValue: null,
+    };
     
-    if (!arbiter?.length) {
-      setErrors((errors) => ({...errors, arbiter: "Invalid arbiter address" }));
-      return;
+    if (!arbiter?.length || !ethers.utils.isAddress(arbiter)) {
+      deployErrors.arbiter = "Invalid arbiter address";
+    } else if (arbiter?.length && user.wallet.toLowerCase() === arbiter.toLowerCase()) {
+      deployErrors.arbiter = "Arbiter can't be the same as the contract deployer";
     } else {
-      setErrors((errors) => ({...errors, arbiter: null }));
+      deployErrors.arbiter = null;
     }
 
-    if (!beneficiary?.length) {
-      setErrors((errors) => ({...errors, beneficiary: "Invalid arbiter address" }));
-      return;
+    if (!beneficiary?.length || !ethers.utils.isAddress(beneficiary)) {
+      deployErrors.beneficiary = "Invalid beneficiary address";
+    } else if (beneficiary?.length && arbiter?.length && beneficiary === arbiter) {
+      deployErrors.beneficiary = "Beneficiary can't be the same as the arbiter";
+    } else if (beneficiary?.length && user?.wallet === beneficiary) {
+      deployErrors.beneficiary = "Beneficiary can't be the same as the contract deployer";
+    } else if (beneficiary?.length && arbiter?.length && beneficiary === arbiter) {
+      deployErrors.beneficiary = "Beneficiary can't be the same as the arbiter";
     } else {
-      setErrors((errors) => ({...errors, beneficiary: null }));
+      deployErrors.beneficiary = null;
     }
 
-    if (!wethValue?.length) {
-      setErrors((errors) => ({...errors, wethValue: "Invalid arbiter address" }));
-      return;
+    if (!wethValue?.length || parseFloat(wethValue) <= 0 ) {
+      deployErrors.wethValue = "Invalid amount of WETH to be sent";
     } else {
-      setErrors((errors) => ({...errors, wethValue: null }));
+      deployErrors.wethValue = null;
     }
 
-    if (beneficiary === arbiter) {
-      setErrors((errors) => ({...errors, beneficiary: "Beneficiary can't be the same as the arbiter" }));
-      return;
-    } else {
-      setErrors((errors) => ({...errors, beneficiary: null }));
-    }
-
-    if (user.wallet === beneficiary) {
-      setErrors((errors) => ({...errors, beneficiary: "Beneficiary can't be the same as the contract deployer" }));
-      return;
-    } else {
-      setErrors((errors) => ({...errors, beneficiary: null }));
-    }
+    setErrors(deployErrors);
     
     if (
-      errors.arbiter?.length || 
-      errors.beneficiary?.length || 
-      errors.wethValue?.length
+      deployErrors.arbiter?.length ||
+      deployErrors.beneficiary?.length ||
+      deployErrors.wethValue?.length
     ) {
-      alert("Make sure to fix the errors before creating the contract");
       return;
     }
 
@@ -109,15 +120,15 @@ function App() {
 
     try {
       // Deploy the contract
-      const escrowContract = await deploy(signer, arbiter, beneficiary, value)
-
+      const escrowContract = await deploy(signer, arbiter, beneficiary, value);
+      
       // Register the contract on the db using the api
-      // TODO ---->
       await addContract({
         contractAddress: escrowContract.address,
         arbiter,
         beneficiary,
         deployer: user.wallet,
+        value,
       });
 
       const escrow = {
@@ -161,10 +172,9 @@ function App() {
   }
 
   function handleSetWethValue(value) {
-    setWethValue(value);
-    if (value.matchAll(/^[\d]+$/)) {
-      setErrors((errors) => ({...errors, wethValue: "Invalid WETH value provided" }));
-    } else {
+    if (!value.matchAll(/^[\d]+$/g)) return;
+    else {
+      setWethValue(value);
       setErrors((errors) => ({...errors, wethValue: null }));
     }
   }
@@ -182,7 +192,7 @@ function App() {
             <span className="semibold text-mono"> {user?.wallet} </span>
           </p>
           <p className="text-mono text-sm">
-            Balance (in ETH): <span className="text-sm"> {userBalance} </span>
+            Balance (in ETH): <span className="text-sm"> { userBalance } WETH </span>
           </p>
         </div>
       ) : null}
@@ -225,7 +235,7 @@ function App() {
             </label>
             <hr />
             <label className="text-grotesk text-sm text-slate-700">
-              Deposit Amount (in Wei)
+              <span> Deposit Amount (in Wei) = { wethValue?.length ? parseFloat(ethers.utils.formatEther(wethValue)).toFixed(18) : null } ETH </span>
               <input
                 className="text-md"
                 value={wethValue}
@@ -253,23 +263,15 @@ function App() {
         {/* Contracts that were created */}
         <div className="mx-1">
           <h1 className="text-grotesk"> Existing Contracts </h1>
-          <div className="overflow-y-auto h-[600px] bg-white shadow-lg">
             {escrows?.length ? (
-              escrows.map((escrow) => {
-                return <Escrow key={escrow.address} {...escrow} />;
-              })
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="bg-slate-200 p-4 flex items-center">
-                  <div>
-                    <p className="text-lg text-grotesk text-black">
-                      No available contracts
-                    </p>
-                  </div>
-                </div>
+              <div className="overflow-y-auto h-[600px] bg-white shadow-lg">
+                {
+                  escrows.map((escrow) => {
+                    return <Escrow key={escrow.address} {...escrow} />;
+                  })
+                }
               </div>
-            )}
-          </div>
+            ) : null }
         </div>
       </div>
     </div>

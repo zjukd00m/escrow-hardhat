@@ -19,6 +19,7 @@ const User = mongoose.model("Users", UserSchema);
 const ContractSchema = new mongoose.Schema({
     address: { type: String, required: true },
     wallets: { type: [String], required: true },
+    value: { type: String, required: true },
 });
 
 const Contract = mongoose.model("Contracts", ContractSchema);
@@ -38,7 +39,7 @@ async function main() {
     app.use(helmet());
     app.use(express.json());
     app.use(cors({
-        origin: "*",
+        origin: ["http://localhost:3000"],
     }));
 
 
@@ -104,13 +105,17 @@ async function main() {
             arbiter,
             beneficiary,
             deployer,
+            value,
         } = req.body;
+
+        console.log(req.body)
 
         if (
             !contractAddress?.length ||
             !arbiter?.length ||
             !beneficiary?.length ||
-            !deployer?.length
+            !deployer?.length ||
+            !value?.length
         ) {
             return res.sendStatus(422);
         }
@@ -130,6 +135,7 @@ async function main() {
             const contract = new Contract({
                 address: contractAddress,
                 wallets: [arbiter, beneficiary, deployer],
+                value,
             });
 
             res.status(201).json(await contract.save());
@@ -139,27 +145,27 @@ async function main() {
     });
 
     // Does the given account exist ?
-    // app.get("/api/users/:userAddress", async (req, res) => {
-    //     const userAddress = req.params.userAddress;
+    app.get("/api/users/:userAddress", async (req, res) => {
+        const userAddress = req.params.userAddress;
 
-    //     if (!userAddress?.length)
-    //         return res.sendStatus(422);
+        if (!userAddress?.length)
+            return res.sendStatus(422);
 
-    //     if (!ethers.isAddress(userAddress))
-    //         return res.sendStatus(422);
+        if (!ethers.isAddress(userAddress))
+            return res.sendStatus(422);
 
-    //     try {
-    //         const userExist = await User.exists({
-    //             wallet: userAddress.trim().toLowerCase(),
-    //         });
+        try {
+            const userExist = await User.exists({
+                wallet: userAddress.trim().toLowerCase(),
+            });
 
-    //         const value = userExist?._id?.toString()?.length ? true : false;
+            const value = userExist?._id?.toString()?.length ? true : false;
 
-    //         res.send({ userExist: value });
-    //     } catch (error) {
-    //         return res.status(500).json({ message: error.message });
-    //     }
-    // });
+            res.send({ userExist: value });
+        } catch (error) {
+            return res.status(500).json({ message: error.message });
+        }
+    });
 
     const server = http.createServer(app);
 

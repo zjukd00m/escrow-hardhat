@@ -14,6 +14,7 @@ const addContract = ({
     arbiter,
     beneficiary,
     deployer,
+    value,
 }) => fetch(`${API_URL}/api/contracts`, {
         headers,
         body: JSON.stringify({
@@ -21,6 +22,7 @@ const addContract = ({
             arbiter,
             beneficiary,
             deployer,
+            value,
         }),
         method: "POST",
     })
@@ -29,5 +31,8 @@ const addContract = ({
 const getUserContracts = (userWallet) => fetch(`${API_URL}/api/contracts?userAddress=${userWallet}`)
         .then((res) => res.json());
 
+const userExist = (userWallet) => fetch(`${API_URL}/api/users/${userWallet}`)
+    .then((res) => res.json());
 
-export { createUser, addContract, getUserContracts };
+
+export { createUser, addContract, getUserContracts, userExist };
