@@ -18,8 +18,9 @@ const User = mongoose.model("Users", UserSchema);
 
 const ContractSchema = new mongoose.Schema({
     address: { type: String, required: true },
-    wallets: { type: [String], required: true },
+    wallets: { type: [{ role: String, wallet: String }], required: true },
     value: { type: String, required: true },
+    txHash: { type: String, required: true },
 });
 
 const Contract = mongoose.model("Contracts", ContractSchema);
@@ -90,7 +91,7 @@ async function main() {
         }
 
         try {
-            const contracts = await Contract.find({ wallets: { $in: [userAddress.trim().toLowerCase()] } }).exec();
+            const contracts = await Contract.find({ wallets: { $elemMatch: { wallet: userAddress.toLowerCase() }}});
 
             res.json({ contracts });
         } catch (error) {
@@ -106,16 +107,16 @@ async function main() {
             beneficiary,
             deployer,
             value,
+            txHash,
         } = req.body;
-
-        console.log(req.body)
 
         if (
             !contractAddress?.length ||
             !arbiter?.length ||
             !beneficiary?.length ||
             !deployer?.length ||
-            !value?.length
+            !value?.length ||
+            !txHash?.length
         ) {
             return res.sendStatus(422);
         }
@@ -130,12 +131,18 @@ async function main() {
         arbiter = arbiter.trim().toLowerCase();
         beneficiary = beneficiary.trim().toLowerCase();
         deployer = deployer.trim().toLowerCase();
+        txHash = txHash.trim().toLowerCase();
 
         try {
             const contract = new Contract({
                 address: contractAddress,
-                wallets: [arbiter, beneficiary, deployer],
+                wallets: [
+                    { role: "arbiter", wallet: arbiter },
+                    { role: "beneficiary", wallet: beneficiary },
+                    { role: "deployer", wallet: deployer },
+                ],
                 value,
+                txHash,
             });
 
             res.status(201).json(await contract.save());
@@ -156,13 +163,14 @@ async function main() {
 
         try {
             const userExist = await User.exists({
-                wallet: userAddress.trim().toLowerCase(),
+                wallet: { $elemMatch: { wallet: userAddress.toLowerCase() } },
             });
 
             const value = userExist?._id?.toString()?.length ? true : false;
 
             res.send({ userExist: value });
         } catch (error) {
+            console.log(error)
             return res.status(500).json({ message: error.message });
         }
     });

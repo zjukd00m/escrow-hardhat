@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import Navbar from './components/Navbar/Navbar';
 import Escrow from './components/Escrow/Escrow';
-import EscrowInterface from './artifacts/contracts/Escrow.sol/Escrow';
 import useAuth from './hooks/AuthHook';
 import {
   approve,
   deploy,
-  getContractData,
+  getEthersContract,
   getUserBalance,
 } from './utils';
 import { addContract, getUserContracts } from './api';
@@ -25,23 +24,40 @@ function App() {
     beneficiary: null,
   });
 
-  // TODO: [x] Fetch existing user deployed contracts from the api
   useEffect(() => {
     if (!isAuthenticated) return;
     
     (async () => {
       try {
         const userContracts = await getUserContracts(user.wallet);
-
+        
         if (!userContracts?.contracts?.length) return;
 
+        // Parse the escrow contracts to structure the data and add the signer
         const parsedContracts = await Promise.all(
-          userContracts.contracts.map((contract) => getContractData(contract))
-        );
+          userContracts?.contracts?.map((contract) => {
+            const { address, wallets } = contract;
 
-        console.log("The user contracts");
-        console.log(parsedContracts);
+            const escrowContract = getEthersContract(address);
 
+            const arbiter = wallets.find(({ role }) => role === "arbiter").wallet;
+            const beneficiary = wallets.find(({ role}) => role === "beneficiary").wallet;
+
+            return {
+              ...contract,
+              arbiter,
+              beneficiary,
+              signer,
+              handleApprove: async () => {
+                if (user.wallet === arbiter)
+                  await approve(escrowContract, signer);
+                else
+                  alert("Only the arbiter can approve the contract");
+              },
+            };
+        }));
+
+        setEscrows(parsedContracts)
 
       } catch (error) {
         alert(error.message);
@@ -56,8 +72,6 @@ function App() {
     (async () => {
       try {
         const _userBalance = await getUserBalance(user.wallet);
-
-        console.log({ _userBalance })
 
         setUserBalance(_userBalance);
       } catch (error) {
@@ -121,7 +135,7 @@ function App() {
     try {
       // Deploy the contract
       const escrowContract = await deploy(signer, arbiter, beneficiary, value);
-      
+
       // Register the contract on the db using the api
       await addContract({
         contractAddress: escrowContract.address,
@@ -129,6 +143,7 @@ function App() {
         beneficiary,
         deployer: user.wallet,
         value,
+        txHash: escrowContract.deployTransaction.hash,
       });
 
       const escrow = {
@@ -138,7 +153,10 @@ function App() {
         value,
         txHash: escrowContract.deployTransaction.hash,
         handleApprove: async () => {
-          await approve(escrowContract, signer);
+          if (user.wallet === arbiter)
+            await approve(escrowContract, signer);
+          else
+            alert("Only the arbiter can approve the contract");
         },
       };
 
@@ -264,7 +282,7 @@ function App() {
         <div className="mx-1">
           <h1 className="text-grotesk"> Existing Contracts </h1>
             {escrows?.length ? (
-              <div className="overflow-y-auto h-[600px] bg-white shadow-lg">
+              <div className="overflow-y-auto h-[600px] shadow-lg">
                 {
                   escrows.map((escrow) => {
                     return <Escrow key={escrow.address} {...escrow} />;

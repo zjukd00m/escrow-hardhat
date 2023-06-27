@@ -15,6 +15,7 @@ const addContract = ({
     beneficiary,
     deployer,
     value,
+    txHash,
 }) => fetch(`${API_URL}/api/contracts`, {
         headers,
         body: JSON.stringify({
@@ -23,6 +24,7 @@ const addContract = ({
             beneficiary,
             deployer,
             value,
+            txHash,
         }),
         method: "POST",
     })

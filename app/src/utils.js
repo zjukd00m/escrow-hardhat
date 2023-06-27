@@ -17,11 +17,6 @@ export async function deploy(signer, arbiter, beneficiary, value) {
     signer
   );
 
-  console.log("Will deploy the contract with")
-  console.log({
-    arbiter, beneficiary, value
-  })
-
   const contract = await factory.deploy(arbiter, beneficiary, { value });
 
   return contract;
@@ -238,11 +233,24 @@ export async function isContractApproved(address) {
   }
 }
 
+export function getEthersContract(address) {
+  return new ethers.Contract(address, Escrow.abi, provider);
+}
+
+// * This is one way to fetch the contract data from the blockchain
 export async function getContractData(contract) {
   const { address } = contract;
+  
+  const escrow = new ethers.Contract(address, Escrow.abi, provider);
+  
+  const arbiter = await escrow.arbiter();
+  const beneficiary = await escrow.beneficiary();
+  let value = await provider.getBalance(address)
 
-  const contractBalance = await provider.getBalance(address);
-
-  return ethers.utils.parseEther(contractBalance);
-
+  return {
+    arbiter,
+    beneficiary,
+    value,
+    ...contract
+  }
 }
